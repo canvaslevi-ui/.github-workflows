@@ -25,3 +25,9 @@ jobs:
       - name: Run Script
         run: |
           python bot.py
+          
+          - name: Install PHP
+  run: sudo apt install php -y
+
+- name: Run script
+  run: php bot.php
