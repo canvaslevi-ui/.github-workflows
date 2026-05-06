@@ -26,24 +26,11 @@ input,select,button{
 
 button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
 
-.dashboard{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr;
-  gap:8px;
-}
-
-.box{padding:10px;border-radius:10px;text-align:center;}
-.pending{background:#f59e0b;}
-.cutting{background:#3b82f6;}
-.dispatch{background:#10b981;}
-
-.panel{background:#111827;padding:10px;border-radius:8px;margin:8px 0;}
-
 .project-item{
   background:#111827;
-  padding:10px;
+  padding:12px;
   margin:6px 0;
-  border-radius:8px;
+  border-radius:10px;
   display:flex;
   justify-content:space-between;
   align-items:center;
@@ -58,7 +45,28 @@ button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
   background:#ef4444;
 }
 
-/* 🔥 TOAST */
+.status{
+  font-size:12px;
+  margin-top:4px;
+  font-weight:500;
+}
+
+.pending{color:#f59e0b;}
+.progress{color:#3b82f6;}
+.done{color:#10b981;}
+
+.dashboard{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:8px;
+}
+
+.box{padding:10px;border-radius:10px;text-align:center;}
+.pending-bg{background:#f59e0b;}
+.cutting-bg{background:#3b82f6;}
+.dispatch-bg{background:#10b981;}
+
+/* TOAST */
 #toast{
   position:fixed;
   top:20px;
@@ -67,11 +75,9 @@ button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
   color:#fff;
   padding:12px 18px;
   border-radius:8px;
-  font-size:14px;
   opacity:0;
   transform:translateY(-20px);
-  transition:all 0.3s ease;
-  z-index:9999;
+  transition:0.3s;
 }
 
 #toast.show{
@@ -91,46 +97,33 @@ button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
 
 <div class="container">
 
-<!-- UPLOAD -->
 <div class="card">
 <input id="projectName" placeholder="Project Name">
 <input type="file" id="file">
 <button onclick="upload()">Upload Excel</button>
 </div>
 
-<!-- SELECT -->
-<div class="card">
-<select id="projectSelect" onchange="loadProject()"></select>
-</div>
-
-<!-- TOTAL -->
 <div class="card">
 📊 Total Projects: <span id="totalProjects">0</span>
 </div>
 
-<!-- SEARCH -->
+<div class="dashboard">
+  <div class="box pending-bg">Pending<br><span id="gPending">0</span></div>
+  <div class="box cutting-bg">Cutting<br><span id="gCutting">0</span></div>
+  <div class="box dispatch-bg">Dispatch<br><span id="gDispatch">0</span></div>
+</div>
+
 <div class="card">
 <input id="searchProject" placeholder="🔍 Search Projects..." oninput="renderProjectList()">
 </div>
 
-<!-- PROJECT LIST -->
 <div class="card">
 <b>📂 All Projects</b>
 <div id="projectList"></div>
 </div>
 
-<!-- DASHBOARD -->
-<div class="dashboard">
-<div class="box pending">Pending<br><span id="pending">0</span></div>
-<div class="box cutting">Cutting<br><span id="cutting">0</span></div>
-<div class="box dispatch">Dispatch<br><span id="dispatch">0</span></div>
 </div>
 
-<div id="list"></div>
-
-</div>
-
-<!-- TOAST -->
 <div id="toast"></div>
 
 <script>
@@ -142,14 +135,13 @@ socket.on("refresh", loadProjects);
 
 let projects=[];
 
-// 🔔 TOAST
+// TOAST
 function showToast(msg,type="success"){
-  const t=document.getElementById("toast");
+  let t=document.getElementById("toast");
   t.innerText=msg;
   t.className="show";
   if(type==="error") t.classList.add("error");
-
-  setTimeout(()=>{ t.className=""; },3000);
+  setTimeout(()=>t.className="",3000);
 }
 
 // CLEAN
@@ -248,18 +240,28 @@ let data=await res.json();
 
 projects=data.data;
 
-totalProjects.innerText=projects.length;
+// TOTAL PROJECT
+totalProjects.innerText = projects.length;
 
-projectSelect.innerHTML="";
+// GLOBAL COUNTS
+let gPending=0,gCutting=0,gDispatch=0;
+
 projects.forEach(p=>{
-projectSelect.innerHTML+=`<option value="${p._id}">${p.name}</option>`;
+  p.panels.forEach(panel=>{
+    if(panel.status==="pending") gPending++;
+    if(panel.status==="cutting") gCutting++;
+    if(panel.status==="dispatched") gDispatch++;
+  });
 });
 
+gPendingEl.innerText=gPending;
+gCuttingEl.innerText=gCutting;
+gDispatchEl.innerText=gDispatch;
+
 renderProjectList();
-loadProject();
 }
 
-// PROJECT LIST (WITH STATUS + SEARCH)
+// PROJECT LIST WITH STATUS
 function renderProjectList(){
 
 let search=document.getElementById("searchProject").value.toLowerCase();
@@ -274,22 +276,20 @@ let total=p.panels.length;
 let done=p.panels.filter(x=>x.status==="dispatched").length;
 let started=p.panels.filter(x=>x.status!=="pending").length;
 
-let status="Pending",color="#f59e0b";
+let status="Pending",cls="pending";
 
 if(done===total && total>0){
-  status="Completed";
-  color="#10b981";
+  status="Completed"; cls="done";
 }
 else if(started>0){
-  status="In Progress";
-  color="#3b82f6";
+  status="In Progress"; cls="progress";
 }
 
 html+=`
 <div class="project-item">
   <div>
     <div>${p.name}</div>
-    <small style="color:${color}">${status}</small>
+    <div class="status ${cls}">${status}</div>
   </div>
 
   <div class="project-actions">
@@ -305,49 +305,20 @@ projectList.innerHTML=html||"No projects found";
 
 // SELECT
 function selectProject(id){
-projectSelect.value=id;
-loadProject();
+showToast("Opened: "+id);
 }
 
 // DELETE
 async function deleteProject(id){
-
 if(!confirm("Delete project?")) return;
-
 await fetch(API+"/api/projects/"+id,{method:"DELETE"});
-
 showToast("Project Deleted");
 loadProjects();
 }
 
-// LOAD PROJECT DETAILS
-function loadProject(){
-
-let id=projectSelect.value;
-let p=projects.find(x=>x._id===id);
-
-let html="",pending=0,cutting=0,dispatch=0;
-
-p?.panels.forEach(panel=>{
-let i=panel.items[0];
-
-if(panel.status==="pending") pending++;
-if(panel.status==="cutting") cutting++;
-if(panel.status==="dispatched") dispatch++;
-
-html+=`<div class="panel"><b>${panel.id}</b><br>${i.seq}/${panel.totalGroupQty}</div>`;
-});
-
-list.innerHTML=html;
-
-pendingEl.innerText=pending;
-cuttingEl.innerText=cutting;
-dispatchEl.innerText=dispatch;
-}
-
-const pendingEl=document.getElementById("pending");
-const cuttingEl=document.getElementById("cutting");
-const dispatchEl=document.getElementById("dispatch");
+const gPendingEl=document.getElementById("gPending");
+const gCuttingEl=document.getElementById("gCutting");
+const gDispatchEl=document.getElementById("gDispatch");
 
 window.onload=loadProjects;
 
