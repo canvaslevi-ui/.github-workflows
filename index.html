@@ -7,6 +7,8 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
 body{
   font-family:'Segoe UI';
@@ -15,62 +17,74 @@ body{
   margin:0;
 }
 
+/* HEADER */
 .header{
   background:#020617;
-  padding:15px 20px;
-  font-size:20px;
+  padding:15px;
+  font-size:18px;
   font-weight:bold;
 }
 
-.container{padding:20px;}
-
-.card{
-  background:#1e293b;
+/* CONTAINER */
+.container{
   padding:15px;
-  border-radius:10px;
-  margin-bottom:15px;
 }
 
+/* CARD */
+.card{
+  background:#1e293b;
+  padding:12px;
+  border-radius:10px;
+  margin-bottom:12px;
+}
+
+/* INPUT */
+input,select,button{
+  width:100%;
+  padding:12px;
+  margin:6px 0;
+  border:none;
+  border-radius:8px;
+  font-size:14px;
+}
+
+/* BUTTON */
+button{
+  background:#3b82f6;
+  color:#fff;
+  font-weight:bold;
+}
+
+/* DASHBOARD */
 .dashboard{
-  display:flex;
+  display:grid;
+  grid-template-columns:1fr 1fr;
   gap:10px;
-  flex-wrap:wrap;
 }
 
 .box{
-  flex:1;
-  min-width:150px;
-  padding:15px;
+  padding:12px;
   border-radius:10px;
   text-align:center;
+  font-size:14px;
 }
 
 .pending{background:#f59e0b;}
 .cutting{background:#3b82f6;}
 .dispatch{background:#10b981;}
 
-input,select,button{
-  padding:10px;
-  margin:5px 0;
-  border:none;
-  border-radius:6px;
-}
-
-button{
-  background:#3b82f6;
-  color:#fff;
-  cursor:pointer;
-}
-
+/* PANEL */
 .panel{
   background:#111827;
-  padding:12px;
-  margin:10px 0;
+  padding:10px;
   border-radius:8px;
+  margin:8px 0;
+  font-size:14px;
 }
 
+/* PROGRESS */
 .progress{
-  height:10px;
+  height:8px;
   background:#333;
   border-radius:10px;
   overflow:hidden;
@@ -147,28 +161,35 @@ function expand(id){
   });
 }
 
-// UPLOAD
+// UPLOAD (FIXED)
 async function upload(){
 
-let file=document.getElementById("file").files[0];
-if(!file) return alert("Select file");
+let name = document.getElementById("projectName").value;
+let file = document.getElementById("file").files[0];
 
-let reader=new FileReader();
+if(!name) return alert("❌ Enter project name");
+if(!file) return alert("❌ Select file");
 
-reader.onload=async e=>{
+let reader = new FileReader();
 
-let wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-let rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+reader.onload = async e=>{
 
-let hi=rows.findIndex(r=>r.join("").toLowerCase().includes("panel"));
-let h=rows[hi].map(x=>x.toLowerCase());
+try{
 
-let pi=h.findIndex(x=>x.includes("panel"));
-let li=h.findIndex(x=>x.includes("length"));
-let wi=h.findIndex(x=>x.includes("width"));
-let qi=h.findIndex(x=>x.includes("qty"));
+let wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+let rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
 
-let project={name:projectName.value,panels:[]};
+let hi = rows.findIndex(r=>r.join("").toLowerCase().includes("panel"));
+if(hi === -1) return alert("❌ Panel column not found");
+
+let h = rows[hi].map(x=>x.toLowerCase());
+
+let pi = h.findIndex(x=>x.includes("panel"));
+let li = h.findIndex(x=>x.includes("length"));
+let wi = h.findIndex(x=>x.includes("width"));
+let qi = h.findIndex(x=>x.includes("qty"));
+
+let project = {name,panels:[]};
 
 for(let i=hi+1;i<rows.length;i++){
 let r=rows[i];
@@ -189,11 +210,25 @@ totalGroupQty:qty
 });
 }
 
-await fetch(API+"/api/projects",{
+let res = await fetch(API+"/api/projects",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
 body:JSON.stringify(project)
 });
+
+let data = await res.json();
+
+if(data.success){
+alert("✅ Upload Success");
+loadProjects();
+}else{
+alert("❌ Upload Failed");
+}
+
+}catch(err){
+console.log(err);
+alert("❌ File Error");
+}
 
 };
 
@@ -202,12 +237,12 @@ reader.readAsArrayBuffer(file);
 
 // LOAD PROJECTS
 async function loadProjects(){
-let res=await fetch(API+"/api/projects");
-let data=await res.json();
+let res = await fetch(API+"/api/projects");
+let data = await res.json();
 
-projects=data.data;
+projects = data.data;
 
-let s=projectSelect;
+let s = projectSelect;
 s.innerHTML="";
 
 projects.forEach(p=>{
@@ -219,8 +254,8 @@ loadProject();
 
 // LOAD PROJECT
 function loadProject(){
-let id=projectSelect.value;
-let p=projects.find(x=>x._id===id);
+let id = projectSelect.value;
+let p = projects.find(x=>x._id===id);
 
 let html="",pending=0,cutting=0,dispatch=0;
 
@@ -252,6 +287,7 @@ bar.style.width=percent+"%";
 progressText.innerText=percent+"% Completed";
 }
 
+// INIT
 window.onload=loadProjects;
 
 </script>
