@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Levi Interiors Admin Panel</title>
+
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body{
+  font-family:'Segoe UI';
+  background:#0f172a;
+  color:#fff;
+  margin:0;
+}
+
+.header{
+  background:#020617;
+  padding:15px 20px;
+  font-size:20px;
+  font-weight:bold;
+}
+
+.container{padding:20px;}
+
+.card{
+  background:#1e293b;
+  padding:15px;
+  border-radius:10px;
+  margin-bottom:15px;
+}
+
+.dashboard{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.box{
+  flex:1;
+  min-width:150px;
+  padding:15px;
+  border-radius:10px;
+  text-align:center;
+}
+
+.pending{background:#f59e0b;}
+.cutting{background:#3b82f6;}
+.dispatch{background:#10b981;}
+
+input,select,button{
+  padding:10px;
+  margin:5px 0;
+  border:none;
+  border-radius:6px;
+}
+
+button{
+  background:#3b82f6;
+  color:#fff;
+  cursor:pointer;
+}
+
+.panel{
+  background:#111827;
+  padding:12px;
+  margin:10px 0;
+  border-radius:8px;
+}
+
+.progress{
+  height:10px;
+  background:#333;
+  border-radius:10px;
+  overflow:hidden;
+}
+
+.progress-bar{
+  height:100%;
+  background:#22c55e;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">🔥 Levi Interiors — Admin Panel</div>
+
+<div class="container">
+
+<!-- UPLOAD -->
+<div class="card">
+  <input id="projectName" placeholder="Project Name">
+  <input type="file" id="file">
+  <button onclick="upload()">Upload Excel</button>
+</div>
+
+<!-- PROJECT SELECT -->
+<div class="card">
+  <select id="projectSelect" onchange="loadProject()"></select>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard">
+  <div class="box pending">Pending<br><span id="pending">0</span></div>
+  <div class="box cutting">Cutting<br><span id="cutting">0</span></div>
+  <div class="box dispatch">Dispatch<br><span id="dispatch">0</span></div>
+</div>
+
+<!-- PROGRESS -->
+<div class="card">
+  <div class="progress">
+    <div id="bar" class="progress-bar"></div>
+  </div>
+  <div id="progressText"></div>
+</div>
+
+<!-- PANEL LIST -->
+<div id="list"></div>
+
+</div>
+
+<script>
+
+const API = "http://localhost:3000";
+const socket = io(API);
+
+socket.on("refresh", loadProjects);
+
+let projects=[];
+
+// CLEAN
+function clean(v){
+  return parseFloat(String(v).replace(/[^0-9.]/g,''))||0;
+}
+
+// EXPAND
+function expand(id){
+  return id.split(",").flatMap(p=>{
+    p=p.replace("#","").trim();
+    if(p.includes("-")){
+      let[s,e]=p.split("-").map(Number);
+      return Array.from({length:e-s+1},(_,i)=>"#"+(s+i));
+    }
+    return["#"+p];
+  });
+}
+
+// UPLOAD
+async function upload(){
+
+let file=document.getElementById("file").files[0];
+if(!file) return alert("Select file");
+
+let reader=new FileReader();
+
+reader.onload=async e=>{
+
+let wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+let rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+
+let hi=rows.findIndex(r=>r.join("").toLowerCase().includes("panel"));
+let h=rows[hi].map(x=>x.toLowerCase());
+
+let pi=h.findIndex(x=>x.includes("panel"));
+let li=h.findIndex(x=>x.includes("length"));
+let wi=h.findIndex(x=>x.includes("width"));
+let qi=h.findIndex(x=>x.includes("qty"));
+
+let project={name:projectName.value,panels:[]};
+
+for(let i=hi+1;i<rows.length;i++){
+let r=rows[i];
+if(!r[pi]) continue;
+
+let ids=expand(r[pi]);
+let len=clean(r[li]);
+let wid=clean(r[wi]);
+let qty=parseInt(clean(r[qi]));
+
+ids.forEach((id,index)=>{
+project.panels.push({
+id,
+status:"pending",
+items:[{length:len,width:wid,seq:index+1}],
+totalGroupQty:qty
+});
+});
+}
+
+await fetch(API+"/api/projects",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify(project)
+});
+
+};
+
+reader.readAsArrayBuffer(file);
+}
+
+// LOAD PROJECTS
+async function loadProjects(){
+let res=await fetch(API+"/api/projects");
+let data=await res.json();
+
+projects=data.data;
+
+let s=projectSelect;
+s.innerHTML="";
+
+projects.forEach(p=>{
+s.innerHTML+=`<option value="${p._id}">${p.name}</option>`;
+});
+
+loadProject();
+}
+
+// LOAD PROJECT
+function loadProject(){
+let id=projectSelect.value;
+let p=projects.find(x=>x._id===id);
+
+let html="",pending=0,cutting=0,dispatch=0;
+
+p?.panels.forEach(panel=>{
+let i=panel.items[0];
+
+if(panel.status==="pending") pending++;
+if(panel.status==="cutting") cutting++;
+if(panel.status==="dispatched") dispatch++;
+
+html+=`
+<div class="panel">
+<b>${panel.id}</b><br>
+${i.seq} of ${panel.totalGroupQty}
+</div>`;
+});
+
+list.innerHTML=html;
+
+document.getElementById("pending").innerText=pending;
+document.getElementById("cutting").innerText=cutting;
+document.getElementById("dispatch").innerText=dispatch;
+
+let total=pending+cutting+dispatch;
+let done=cutting+dispatch;
+let percent=Math.round((done/total)*100||0);
+
+bar.style.width=percent+"%";
+progressText.innerText=percent+"% Completed";
+}
+
+window.onload=loadProjects;
+
+</script>
+
+</body>
+</html>
