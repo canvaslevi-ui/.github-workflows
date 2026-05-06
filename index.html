@@ -108,6 +108,11 @@ button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
 📊 Total Projects: <span id="totalProjects">0</span>
 </div>
 
+<!-- SEARCH -->
+<div class="card">
+<input id="searchProject" placeholder="🔍 Search Projects..." oninput="renderProjectList()">
+</div>
+
 <!-- PROJECT LIST -->
 <div class="card">
 <b>📂 All Projects</b>
@@ -125,7 +130,7 @@ button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
 
 </div>
 
-<!-- 🔥 TOAST -->
+<!-- TOAST -->
 <div id="toast"></div>
 
 <script>
@@ -137,16 +142,14 @@ socket.on("refresh", loadProjects);
 
 let projects=[];
 
-// 🔔 TOAST FUNCTION
+// 🔔 TOAST
 function showToast(msg,type="success"){
   const t=document.getElementById("toast");
   t.innerText=msg;
   t.className="show";
   if(type==="error") t.classList.add("error");
 
-  setTimeout(()=>{
-    t.className="";
-  },3000);
+  setTimeout(()=>{ t.className=""; },3000);
 }
 
 // CLEAN
@@ -256,15 +259,39 @@ renderProjectList();
 loadProject();
 }
 
-// PROJECT LIST
+// PROJECT LIST (WITH STATUS + SEARCH)
 function renderProjectList(){
+
+let search=document.getElementById("searchProject").value.toLowerCase();
 
 let html="";
 
-projects.forEach(p=>{
+projects
+.filter(p=>p.name.toLowerCase().includes(search))
+.forEach(p=>{
+
+let total=p.panels.length;
+let done=p.panels.filter(x=>x.status==="dispatched").length;
+let started=p.panels.filter(x=>x.status!=="pending").length;
+
+let status="Pending",color="#f59e0b";
+
+if(done===total && total>0){
+  status="Completed";
+  color="#10b981";
+}
+else if(started>0){
+  status="In Progress";
+  color="#3b82f6";
+}
+
 html+=`
 <div class="project-item">
-  <span>${p.name}</span>
+  <div>
+    <div>${p.name}</div>
+    <small style="color:${color}">${status}</small>
+  </div>
+
   <div class="project-actions">
     <button onclick="selectProject('${p._id}')">Open</button>
     <button class="delete-btn" onclick="deleteProject('${p._id}')">Delete</button>
@@ -273,7 +300,7 @@ html+=`
 `;
 });
 
-projectList.innerHTML=html;
+projectList.innerHTML=html||"No projects found";
 }
 
 // SELECT
@@ -293,7 +320,7 @@ showToast("Project Deleted");
 loadProjects();
 }
 
-// LOAD PROJECT
+// LOAD PROJECT DETAILS
 function loadProject(){
 
 let id=projectSelect.value;
