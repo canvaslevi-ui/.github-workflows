@@ -2,19 +2,20 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Levi Interiors Admin</title>
-
+<title>Living Interior Cut List Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
+*{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:system-ui;background:#0f172a;color:#fff;margin:0;}
-.header{background:#020617;padding:15px;text-align:center;font-weight:bold;}
-.container{padding:12px;}
+.header{background:#020617;padding:15px;text-align:center;font-weight:bold;font-size:20px;letter-spacing:1px;}
+.header span{color:#3b82f6;}
+.container{padding:12px;max-width:1200px;margin:0 auto;}
 
-.card{background:#1e293b;padding:12px;border-radius:10px;margin-bottom:10px;}
+.card{background:#1e293b;padding:15px;border-radius:10px;margin-bottom:12px;}
+.card h3{font-size:14px;color:#94a3b8;margin-bottom:8px;}
 
 input,select,button{
   width:100%;
@@ -22,104 +23,164 @@ input,select,button{
   margin:6px 0;
   border:none;
   border-radius:8px;
+  font-size:14px;
 }
+input,select{background:#0f172a;color:#fff;}
+input::placeholder{color:#64748b;}
 
-button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
+button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;transition:0.2s;}
+button:hover{opacity:0.9;transform:scale(0.98);}
+button:disabled{opacity:0.5;cursor:not-allowed;}
+button.danger{background:#ef4444;}
+button.success{background:#22c55e;}
+
+.upload-row{display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+.upload-row input[type="file"]{padding:10px;background:#0f172a;color:#fff;border:2px dashed #475569;cursor:pointer;}
 
 .project-item{
   background:#111827;
-  padding:12px;
-  margin:6px 0;
+  padding:14px;
+  margin:8px 0;
   border-radius:10px;
   display:flex;
   justify-content:space-between;
   align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  transition:0.2s;
 }
+.project-item:hover{background:#1e293b;}
 
-.project-actions{
-  display:flex;
-  gap:6px;
-}
+.project-info{flex:1;min-width:150px;}
+.project-name{font-weight:bold;font-size:16px;color:#fff;}
+.project-meta{font-size:12px;color:#94a3b8;margin-top:4px;}
+.project-meta span{margin-right:12px;}
+.project-price{color:#22c55e;font-weight:bold;}
 
-.delete-btn{
-  background:#ef4444;
-}
+.project-actions{display:flex;gap:6px;flex-wrap:wrap;}
+.project-actions button{padding:8px 16px;width:auto;font-size:12px;margin:0;min-width:70px;}
+.delete-btn{background:#ef4444;}
+.view-btn{background:#3b82f6;}
 
-.status{
-  font-size:12px;
-  margin-top:4px;
-  font-weight:500;
-}
-
-.pending{color:#f59e0b;}
-.progress{color:#3b82f6;}
-.done{color:#10b981;}
+.status{font-size:11px;padding:3px 10px;border-radius:12px;display:inline-block;font-weight:600;}
+.status.pending{background:#f59e0b;color:#000;}
+.status.progress{background:#3b82f6;color:#fff;}
+.status.done{background:#10b981;color:#fff;}
 
 .dashboard{
   display:grid;
   grid-template-columns:1fr 1fr 1fr;
-  gap:8px;
+  gap:10px;
 }
+.box{padding:12px;border-radius:10px;text-align:center;}
+.box.pending-bg{background:#f59e0b;color:#000;}
+.box.cutting-bg{background:#3b82f6;color:#fff;}
+.box.dispatch-bg{background:#10b981;color:#fff;}
+.box span{font-size:24px;font-weight:bold;display:block;}
 
-.box{padding:10px;border-radius:10px;text-align:center;}
-.pending-bg{background:#f59e0b;}
-.cutting-bg{background:#3b82f6;}
-.dispatch-bg{background:#10b981;}
+.stats-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.stat-box{background:#0f172a;padding:12px;border-radius:8px;text-align:center;}
+.stat-box .num{font-size:24px;font-weight:bold;color:#3b82f6;}
+.stat-box .label{font-size:12px;color:#94a3b8;}
 
-/* TOAST */
+.project-selector{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.project-selector select{flex:1;min-width:200px;}
+.project-selector .all-btn{flex:0 0 auto;width:auto;padding:12px 24px;background:#8b5cf6;}
+
+/* Toast */
 #toast{
   position:fixed;
   top:20px;
-  right:20px;
+ right:20px;
   background:#22c55e;
   color:#fff;
-  padding:12px 18px;
-  border-radius:8px;
+  padding:14px 20px;
+  border-radius:10px;
   opacity:0;
   transform:translateY(-20px);
   transition:0.3s;
+  z-index:999;
+  max-width:90%;
+  box-shadow:0 4px 12px rgba(0,0,0,0.3);
 }
+#toast.show{opacity:1;transform:translateY(0);}
+#toast.error{background:#ef4444;}
 
-#toast.show{
-  opacity:1;
-  transform:translateY(0);
-}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-radius:50%;border-top-color:transparent;animation:spin 0.6s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
-#toast.error{
-  background:#ef4444;
+.empty-state{text-align:center;padding:40px;color:#94a3b8;}
+.empty-state .icon{font-size:48px;margin-bottom:12px;}
+
+@media (max-width:768px){
+  .upload-row{grid-template-columns:1fr;}
+  .dashboard{grid-template-columns:1fr 1fr;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+  .project-selector{flex-direction:column;}
+  .project-selector select{width:100%;}
+  .project-selector .all-btn{width:100%;}
 }
 </style>
 </head>
-
 <body>
 
-<div class="header">🔥 Levi Interiors Admin</div>
+<div class="header">🏠 <span>Living Interior</span> - Cut List Admin</div>
 
 <div class="container">
 
+<!-- Upload Section -->
 <div class="card">
-<input id="projectName" placeholder="Project Name">
-<input type="file" id="file">
-<button onclick="upload()">Upload Excel</button>
+  <h3>📤 Upload New Project</h3>
+  <div class="upload-row">
+    <input id="projectName" placeholder="Project Name (e.g., SATHVIK-REDDY)">
+    <input type="file" id="excelFile" accept=".csv,.xlsx">
+  </div>
+  <button onclick="uploadProject()" id="uploadBtn">📤 Upload Project</button>
+  <div id="uploadStatus" style="margin-top:8px;font-size:13px;color:#94a3b8;"></div>
 </div>
 
+<!-- Stats -->
 <div class="card">
-📊 Total Projects: <span id="totalProjects">0</span>
+  <div class="stats-row">
+    <div class="stat-box"><div class="num" id="totalProjects">0</div><div class="label">📂 Total Projects</div></div>
+    <div class="stat-box"><div class="num" id="totalPanels">0</div><div class="label">📦 Total Panels</div></div>
+  </div>
 </div>
 
-<div class="dashboard">
-  <div class="box pending-bg">Pending<br><span id="gPending">0</span></div>
-  <div class="box cutting-bg">Cutting<br><span id="gCutting">0</span></div>
-  <div class="box dispatch-bg">Dispatch<br><span id="gDispatch">0</span></div>
+<!-- Project Selector with All Projects -->
+<div class="card">
+  <div class="project-selector">
+    <select id="projectSelect" onchange="onProjectSelect()">
+      <option value="all">📋 All Projects</option>
+    </select>
+    <button class="all-btn" onclick="selectAllProjects()">📋 All Projects</button>
+  </div>
 </div>
 
-<div class="card">
-<input id="searchProject" placeholder="🔍 Search Projects..." oninput="renderProjectList()">
+<!-- Status Dashboard (shows selected project stats) -->
+<div class="card" id="statusDashboard">
+  <h3>📊 Project Status</h3>
+  <div class="dashboard">
+    <div class="box pending-bg">⏳ Pending<br><span id="gPending">0</span></div>
+    <div class="box cutting-bg">✂️ Cutting<br><span id="gCutting">0</span></div>
+    <div class="box dispatch-bg">🚚 Dispatch<br><span id="gDispatch">0</span></div>
+  </div>
+  <div style="margin-top:10px;font-size:13px;color:#94a3b8;">
+    Project: <strong id="selectedProjectName">All Projects</strong> | 
+    Panels: <span id="selectedPanelCount">0</span> | 
+    Progress: <span id="selectedProgress">0%</span>
+  </div>
 </div>
 
+<!-- Search -->
 <div class="card">
-<b>📂 All Projects</b>
-<div id="projectList"></div>
+  <input id="searchProject" placeholder="🔍 Search Projects by name..." oninput="renderProjectList()">
+</div>
+
+<!-- Project List -->
+<div class="card">
+  <h3>📂 Projects List</h3>
+  <div id="projectList"></div>
 </div>
 
 </div>
@@ -131,196 +192,268 @@ button{background:#3b82f6;color:#fff;font-weight:bold;cursor:pointer;}
 const API = "https://levi-api-zhbu.onrender.com";
 const socket = io(API);
 
-socket.on("refresh", loadProjects);
-
-let projects=[];
-
-// TOAST
-function showToast(msg,type="success"){
-  let t=document.getElementById("toast");
-  t.innerText=msg;
-  t.className="show";
-  if(type==="error") t.classList.add("error");
-  setTimeout(()=>t.className="",3000);
-}
-
-// CLEAN
-function clean(v){
-  return parseFloat(String(v).replace(/[^0-9.]/g,''))||0;
-}
-
-// EXPAND
-function expand(id){
-  return id.split(",").flatMap(p=>{
-    p=p.replace("#","").trim();
-    if(p.includes("-")){
-      let[s,e]=p.split("-").map(Number);
-      return Array.from({length:e-s+1},(_,i)=>"#"+(s+i));
-    }
-    return["#"+p];
-  });
-}
-
-// UPLOAD
-async function upload(){
-
-let name=projectName.value;
-let file=document.getElementById("file").files[0];
-
-if(!name||!file){
-  showToast("Fill all fields","error");
-  return;
-}
-
-let reader=new FileReader();
-
-reader.onload=async e=>{
-try{
-
-let wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-let rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-
-let hi=rows.findIndex(r=>r.join("").toLowerCase().includes("panel"));
-let h=rows[hi].map(x=>x.toLowerCase());
-
-let pi=h.findIndex(x=>x.includes("panel"));
-let li=h.findIndex(x=>x.includes("length"));
-let wi=h.findIndex(x=>x.includes("width"));
-let qi=h.findIndex(x=>x.includes("qty"));
-
-let project={name,panels:[]};
-
-for(let i=hi+1;i<rows.length;i++){
-let r=rows[i];
-if(!r[pi]) continue;
-
-let ids=expand(r[pi]);
-let len=clean(r[li]);
-let wid=clean(r[wi]);
-let qty=parseInt(clean(r[qi]));
-
-ids.forEach((id,index)=>{
-project.panels.push({
-id,
-status:"pending",
-items:[{length:len,width:wid,seq:index+1}],
-totalGroupQty:qty
-});
-});
-}
-
-let res=await fetch(API+"/api/projects",{
-method:"POST",
-headers:{"Content-Type":"application/json"},
-body:JSON.stringify(project)
-});
-
-let data=await res.json();
-
-if(data.success){
-  showToast("Upload Success");
+socket.on("refresh", () => {
   loadProjects();
-}else{
-  showToast("Upload Failed","error");
+});
+
+let projects = [];
+let selectedProjectId = "all";
+
+// Toast notification
+function showToast(msg, type = "success") {
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.className = "show";
+  if (type === "error") t.classList.add("error");
+  else t.classList.remove("error");
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.className = "", 4000);
 }
 
-}catch{
-  showToast("File Error","error");
+// Upload Project
+async function uploadProject() {
+  const name = document.getElementById("projectName").value.trim();
+  const excelFile = document.getElementById("excelFile").files[0];
+  const btn = document.getElementById("uploadBtn");
+  const status = document.getElementById("uploadStatus");
+
+  if (!name) {
+    showToast("Please enter project name", "error");
+    return;
+  }
+  if (!excelFile) {
+    showToast("Please select Excel/CSV file", "error");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("projectName", name);
+  formData.append("excel", excelFile);
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Uploading...';
+  status.innerText = "Processing... Please wait";
+
+  try {
+    const res = await fetch(API + "/api/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(`✅ ${data.message}`);
+      status.innerText = `✅ Uploaded ${data.project.panels.length} panels`;
+      document.getElementById("projectName").value = "";
+      document.getElementById("excelFile").value = "";
+      loadProjects();
+    } else {
+      showToast(`❌ ${data.message || "Upload failed"}`, "error");
+      status.innerText = "❌ Upload failed";
+    }
+  } catch (err) {
+    showToast("❌ Network error: " + err.message, "error");
+    status.innerText = "❌ Network error";
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = "📤 Upload Project";
+  setTimeout(() => status.innerText = "", 5000);
 }
-};
 
-reader.readAsArrayBuffer(file);
+// Load Projects
+async function loadProjects() {
+  try {
+    const res = await fetch(API + "/api/projects");
+    const data = await res.json();
+    projects = data.data || [];
+
+    // Update select dropdown
+    const select = document.getElementById("projectSelect");
+    const currentVal = select.value;
+    select.innerHTML = '<option value="all">📋 All Projects</option>';
+    projects.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p._id;
+      opt.textContent = p.name + " (" + p.panels.length + " panels)";
+      select.appendChild(opt);
+    });
+    if (currentVal && projects.some(p => p._id === currentVal)) {
+      select.value = currentVal;
+    } else {
+      select.value = "all";
+    }
+
+    // Update stats
+    let totalPanels = 0;
+    projects.forEach(p => {
+      p.panels.forEach(panel => {
+        totalPanels++;
+      });
+    });
+
+    document.getElementById("totalProjects").innerText = projects.length;
+    document.getElementById("totalPanels").innerText = totalPanels;
+
+    updateDashboard();
+    renderProjectList();
+  } catch (err) {
+    showToast("Error loading projects", "error");
+  }
 }
 
-// LOAD PROJECTS
-async function loadProjects(){
+// Update Dashboard based on selected project
+function updateDashboard() {
+  let selectedProject = null;
+  let panels = [];
 
-let res=await fetch(API+"/api/projects");
-let data=await res.json();
+  if (selectedProjectId === "all") {
+    // All projects
+    projects.forEach(p => {
+      panels = panels.concat(p.panels);
+    });
+    document.getElementById("selectedProjectName").innerText = "All Projects";
+  } else {
+    selectedProject = projects.find(p => p._id === selectedProjectId);
+    if (selectedProject) {
+      panels = selectedProject.panels;
+      document.getElementById("selectedProjectName").innerText = selectedProject.name;
+    } else {
+      panels = [];
+      document.getElementById("selectedProjectName").innerText = "Unknown";
+    }
+  }
 
-projects=data.data;
-
-// TOTAL PROJECT
-totalProjects.innerText = projects.length;
-
-// GLOBAL COUNTS
-let gPending=0,gCutting=0,gDispatch=0;
-
-projects.forEach(p=>{
-  p.panels.forEach(panel=>{
-    if(panel.status==="pending") gPending++;
-    if(panel.status==="cutting") gCutting++;
-    if(panel.status==="dispatched") gDispatch++;
+  let pending = 0, cutting = 0, dispatch = 0;
+  panels.forEach(p => {
+    if (p.status === "pending") pending++;
+    if (p.status === "cutting") cutting++;
+    if (p.status === "dispatched") dispatch++;
   });
-});
 
-gPendingEl.innerText=gPending;
-gCuttingEl.innerText=gCutting;
-gDispatchEl.innerText=gDispatch;
+  document.getElementById("gPending").innerText = pending;
+  document.getElementById("gCutting").innerText = cutting;
+  document.getElementById("gDispatch").innerText = dispatch;
+  document.getElementById("selectedPanelCount").innerText = panels.length;
 
-renderProjectList();
+  const total = pending + cutting + dispatch;
+  const done = cutting + dispatch;
+  const percent = total > 0 ? Math.round((done/total)*100) : 0;
+  document.getElementById("selectedProgress").innerText = percent + "%";
 }
 
-// PROJECT LIST WITH STATUS
-function renderProjectList(){
-
-let search=document.getElementById("searchProject").value.toLowerCase();
-
-let html="";
-
-projects
-.filter(p=>p.name.toLowerCase().includes(search))
-.forEach(p=>{
-
-let total=p.panels.length;
-let done=p.panels.filter(x=>x.status==="dispatched").length;
-let started=p.panels.filter(x=>x.status!=="pending").length;
-
-let status="Pending",cls="pending";
-
-if(done===total && total>0){
-  status="Completed"; cls="done";
-}
-else if(started>0){
-  status="In Progress"; cls="progress";
+// Project select change
+function onProjectSelect() {
+  const select = document.getElementById("projectSelect");
+  selectedProjectId = select.value;
+  updateDashboard();
+  renderProjectList();
 }
 
-html+=`
-<div class="project-item">
-  <div>
-    <div>${p.name}</div>
-    <div class="status ${cls}">${status}</div>
-  </div>
-
-  <div class="project-actions">
-    <button onclick="selectProject('${p._id}')">Open</button>
-    <button class="delete-btn" onclick="deleteProject('${p._id}')">Delete</button>
-  </div>
-</div>
-`;
-});
-
-projectList.innerHTML=html||"No projects found";
+// Select All Projects
+function selectAllProjects() {
+  document.getElementById("projectSelect").value = "all";
+  selectedProjectId = "all";
+  updateDashboard();
+  renderProjectList();
 }
 
-// SELECT
-function selectProject(id){
-showToast("Opened: "+id);
+// Render Project List
+function renderProjectList() {
+  const search = document.getElementById("searchProject").value.toLowerCase();
+  const container = document.getElementById("projectList");
+
+  let filtered = projects.filter(p => 
+    p.name.toLowerCase().includes(search)
+  );
+
+  // If a specific project is selected, show only that
+  if (selectedProjectId !== "all") {
+    filtered = filtered.filter(p => p._id === selectedProjectId);
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📭</div>
+        <p>No projects found</p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = "";
+  filtered.forEach(p => {
+    const total = p.panels.length;
+    const done = p.panels.filter(x => x.status === "dispatched").length;
+    const started = p.panels.filter(x => x.status !== "pending").length;
+
+    let statusText = "Pending", statusClass = "pending";
+    if (done === total && total > 0) {
+      statusText = "Completed";
+      statusClass = "done";
+    } else if (started > 0) {
+      statusText = "In Progress";
+      statusClass = "progress";
+    }
+
+    const pending = p.panels.filter(x => x.status === "pending").length;
+    const cutting = p.panels.filter(x => x.status === "cutting").length;
+    const dispatched = p.panels.filter(x => x.status === "dispatched").length;
+
+    html += `
+    <div class="project-item">
+      <div class="project-info">
+        <div class="project-name">${p.name}</div>
+        <div class="project-meta">
+          <span>📦 ${total} panels</span>
+          <span>⏳ ${pending} pending</span>
+          <span>✂️ ${cutting} cutting</span>
+          <span>🚚 ${dispatched} dispatched</span>
+          <span><span class="status ${statusClass}">${statusText}</span></span>
+        </div>
+      </div>
+      <div class="project-actions">
+        <button class="view-btn" onclick="viewProject('${p._id}')">👁️ View</button>
+        <button class="delete-btn" onclick="deleteProject('${p._id}')">🗑️ Delete</button>
+      </div>
+    </div>
+    `;
+  });
+
+  container.innerHTML = html;
 }
 
-// DELETE
-async function deleteProject(id){
-if(!confirm("Delete project?")) return;
-await fetch(API+"/api/projects/"+id,{method:"DELETE"});
-showToast("Project Deleted");
-loadProjects();
+// View Project (opens in staff panel)
+function viewProject(id) {
+  window.open("./cutlist.html?id=" + id, "_blank");
 }
 
-const gPendingEl=document.getElementById("gPending");
-const gCuttingEl=document.getElementById("gCutting");
-const gDispatchEl=document.getElementById("gDispatch");
+// Delete Project
+async function deleteProject(id) {
+  const project = projects.find(p => p._id === id);
+  if (!confirm(`Delete project "${project ? project.name : '?'}" permanently?`)) return;
+  
+  try {
+    const res = await fetch(API + "/api/projects/" + id, { method: "DELETE" });
+    const data = await res.json();
+    if (data.success) {
+      showToast("✅ Project deleted successfully");
+      loadProjects();
+    } else {
+      showToast("❌ Failed to delete project", "error");
+    }
+  } catch (err) {
+    showToast("❌ Error deleting project: " + err.message, "error");
+  }
+}
 
-window.onload=loadProjects;
+// Auto refresh
+setInterval(loadProjects, 30000);
+
+// Load on start
+window.onload = loadProjects;
 
 </script>
 
